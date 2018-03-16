@@ -41,11 +41,11 @@ import javax.annotation.concurrent.GuardedBy;
  */
 public final class ApplicationInsightsTraceExporter {
 
-  private static final String REGISTER_NAME = ApplicationInsightsTraceExporter.class.getName();
-
   // TODO: correct version and shorter string
-  private static final String SDK_VERSION = "opencensus-exporter-trace-applicationinsights-0.0.1";
+  @VisibleForTesting
+  static final String SDK_VERSION = "opencensus-exporter-trace-applicationinsights-0.0.1";
 
+  private static final String REGISTER_NAME = ApplicationInsightsTraceExporter.class.getName();
   private static final Object monitor = new Object();
 
   @GuardedBy("monitor")

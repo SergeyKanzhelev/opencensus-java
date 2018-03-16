@@ -31,6 +31,7 @@ import io.opencensus.trace.MessageEvent;
 import io.opencensus.trace.export.SpanData;
 import io.opencensus.trace.export.SpanExporter;
 import java.net.MalformedURLException;
+import java.net.URL;
 import java.util.Collection;
 import java.util.Date;
 import java.util.Map;
@@ -45,6 +46,14 @@ final class ApplicationInsightsExporterHandler extends SpanExporter.Handler {
         }
       };
 
+  private static final Function<Object, Long> RETURN_LONG =
+      new Function<Object, Long>() {
+        @Override
+        public Long apply(Object input) {
+          return (Long) input;
+        }
+      };
+
   private final TelemetryClient telemetryClient;
 
   public ApplicationInsightsExporterHandler(TelemetryClient telemetryClient) {
@@ -54,6 +63,14 @@ final class ApplicationInsightsExporterHandler extends SpanExporter.Handler {
   private static String attributeValueToString(AttributeValue attributeValue) {
     return attributeValue.match(
         RETURN_STRING, RETURN_STRING, RETURN_STRING, Functions.<String>returnNull());
+  }
+
+  private static Long attributeValueToLong(AttributeValue attributeValue) {
+    return attributeValue.match(
+        Functions.returnConstant(-1L),
+        Functions.returnConstant(-1L),
+        RETURN_LONG,
+        Functions.returnConstant(-1L));
   }
 
   @Override
@@ -100,6 +117,7 @@ final class ApplicationInsightsExporterHandler extends SpanExporter.Handler {
     String method = null;
     String path = null;
     String route = null;
+    int port = -1;
     boolean isResultSet = false;
 
     for (Map.Entry<String, AttributeValue> entry :
@@ -124,6 +142,9 @@ final class ApplicationInsightsExporterHandler extends SpanExporter.Handler {
         case "http.host":
           host = attributeValueToString(entry.getValue());
           break;
+        case "http.port":
+          port = attributeValueToLong(entry.getValue()).intValue();
+          break;
         default:
           if (!request.getProperties().containsKey(entry.getKey())) {
             request.getProperties().put(entry.getKey(), attributeValueToString(entry.getValue()));
@@ -132,13 +153,7 @@ final class ApplicationInsightsExporterHandler extends SpanExporter.Handler {
     }
 
     if (host != null) {
-      try {
-        // todo: schema?
-        request.setUrl(String.format("https://%s/%s", host, path));
-      } catch (MalformedURLException e) {
-        // ignore
-      }
-
+      request.setUrl(getUrl(host, port, path));
       request.setName(String.format("%s %s", method, route != null ? route : path));
     } else { // perhaps not http
       request.setName(span.getName());
@@ -149,6 +164,20 @@ final class ApplicationInsightsExporterHandler extends SpanExporter.Handler {
     }
 
     telemetryClient.trackRequest(request);
+  }
+
+  private URL getUrl(String host, int port, String path) {
+    try {
+      // todo: better way to determine schema?
+      String schema = port == 80 ? "http" : "https";
+      if (port == 80 || port == 443) {
+        return new URL(String.format("%s://%s%s", schema, host, path));
+      }
+
+      return new URL(String.format("%s://%s:%d%s", schema, host, port, path));
+    } catch (MalformedURLException e) {
+      return null;
+    }
   }
 
   private boolean isApplicationInsightsUrl(String host) {
