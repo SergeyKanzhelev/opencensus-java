@@ -18,16 +18,11 @@ package io.opencensus.exporter.trace.applicationinsights;
 
 import com.microsoft.applicationinsights.TelemetryClient;
 import com.microsoft.applicationinsights.extensibility.context.OperationContext;
-import com.microsoft.applicationinsights.telemetry.Duration;
-import com.microsoft.applicationinsights.telemetry.RemoteDependencyTelemetry;
-import com.microsoft.applicationinsights.telemetry.RequestTelemetry;
-import com.microsoft.applicationinsights.telemetry.TraceTelemetry;
+import com.microsoft.applicationinsights.telemetry.*;
 import io.opencensus.common.Function;
 import io.opencensus.common.Functions;
 import io.opencensus.common.Timestamp;
-import io.opencensus.trace.Annotation;
-import io.opencensus.trace.AttributeValue;
-import io.opencensus.trace.MessageEvent;
+import io.opencensus.trace.*;
 import io.opencensus.trace.export.SpanData;
 import io.opencensus.trace.export.SpanExporter;
 import java.net.MalformedURLException;
@@ -37,6 +32,11 @@ import java.util.Date;
 import java.util.Map;
 
 final class ApplicationInsightsExporterHandler extends SpanExporter.Handler {
+
+  private static final String LINK_PROPERTY_NAME = "link";
+  private static final String LINK_SPAN_ID_PROPERTY_NAME = "spanId";
+  private static final String LINK_TRACE_ID_PROPERTY_NAME = "traceId";
+  private static final String LINK_TYPE_PROPERTY_NAME = "type";
 
   private static final Function<Object, String> RETURN_STRING =
       new Function<Object, String>() {
@@ -163,6 +163,8 @@ final class ApplicationInsightsExporterHandler extends SpanExporter.Handler {
       request.setResponseCode(span.getStatus().getDescription());
     }
 
+    setLinks(span.getLinks(), request.getProperties());
+
     telemetryClient.trackRequest(request);
   }
 
@@ -206,6 +208,7 @@ final class ApplicationInsightsExporterHandler extends SpanExporter.Handler {
 
     String method = null;
     String path = null;
+    int port = -1;
 
     boolean isHttp = false;
     boolean isResultSet = false;
@@ -227,6 +230,9 @@ final class ApplicationInsightsExporterHandler extends SpanExporter.Handler {
           break;
         case "http.host":
           break;
+        case "http.port":
+          port = attributeValueToLong(entry.getValue()).intValue();
+          break;
         default:
           if (!dependency.getProperties().containsKey(entry.getKey())) {
             dependency
@@ -246,7 +252,7 @@ final class ApplicationInsightsExporterHandler extends SpanExporter.Handler {
     }
 
     if (host != null) {
-      dependency.setCommandName(String.format("https://%s/%s", host, path));
+      dependency.setCommandName(getUrl(host, port, path).toString());
     }
 
     if (method != null && path != null) {
@@ -254,6 +260,8 @@ final class ApplicationInsightsExporterHandler extends SpanExporter.Handler {
     } else {
       dependency.setName(span.getName());
     }
+
+    setLinks(span.getLinks(), dependency.getProperties());
 
     telemetryClient.trackDependency(dependency);
   }
@@ -265,7 +273,7 @@ final class ApplicationInsightsExporterHandler extends SpanExporter.Handler {
     setParentOperationContext(span, trace.getContext().getOperation());
     trace.setMessage(annotation.getDescription());
     trace.setTimestamp(getDate(annotationEvent.getTimestamp()));
-    setAttributes(annotation, trace.getProperties());
+    setAttributes(annotation.getAttributes(), trace.getProperties());
 
     telemetryClient.trackTrace(trace);
   }
@@ -290,6 +298,31 @@ final class ApplicationInsightsExporterHandler extends SpanExporter.Handler {
     telemetryClient.trackTrace(trace);
   }
 
+  private void setLinks(SpanData.Links spanLinks, Map<String, String> telemetryProperties) {
+    // for now, we just put links to telemetry properties
+    // link0_spanId = ...
+    // link0_traceId = ...
+    // link0_type = child | parent | other
+    // link0_<attributeKey> = <attributeValue>
+    // this is not convenient for querying data
+    // We'll consider adding Links to operation telemetry schema
+    Link[] links = spanLinks.getLinks().toArray(new Link[0]);
+    for (int i = 0; i < links.length; i++) {
+      String prefix = String.format("%s%d_", LINK_PROPERTY_NAME, i);
+      telemetryProperties.put(
+          prefix + LINK_SPAN_ID_PROPERTY_NAME, links[i].getSpanId().toLowerBase16());
+      telemetryProperties.put(
+          prefix + LINK_TRACE_ID_PROPERTY_NAME, links[i].getTraceId().toLowerBase16());
+      telemetryProperties.put(prefix + LINK_TYPE_PROPERTY_NAME, links[i].getType().name());
+      for (Map.Entry<String, AttributeValue> entry : links[i].getAttributes().entrySet()) {
+        if (!telemetryProperties.containsKey(entry.getKey())) {
+          telemetryProperties.put(
+              prefix + entry.getKey(), attributeValueToString(entry.getValue()));
+        }
+      }
+    }
+  }
+
   private void setOperationContext(SpanData span, OperationContext context) {
     context.setId(span.getContext().getTraceId().toLowerBase16());
     if (span.getParentSpanId() != null) {
@@ -302,8 +335,9 @@ final class ApplicationInsightsExporterHandler extends SpanExporter.Handler {
     context.setParentId(span.getContext().getSpanId().toLowerBase16());
   }
 
-  private void setAttributes(Annotation annotation, Map<String, String> telemetryProperties) {
-    for (Map.Entry<String, AttributeValue> entry : annotation.getAttributes().entrySet()) {
+  private void setAttributes(
+      Map<String, AttributeValue> attributes, Map<String, String> telemetryProperties) {
+    for (Map.Entry<String, AttributeValue> entry : attributes.entrySet()) {
       if (!telemetryProperties.containsKey(entry.getKey())) {
         telemetryProperties.put(entry.getKey(), attributeValueToString(entry.getValue()));
       }

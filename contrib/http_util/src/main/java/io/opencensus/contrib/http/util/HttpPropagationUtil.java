@@ -38,4 +38,17 @@ public class HttpPropagationUtil {
   public static TextFormat getCloudTraceFormat() {
     return new CloudTraceFormat();
   }
+
+  /**
+   * Returns the Distributed tracing format implementation. The header specification for this format
+   * is "traceparent: &lt;00-TRACE_ID&gt;-&lt;SPAN_ID&gt;-&lt;TRACE_OPTIONS&gt;]". See this <a
+   * href="https://w3c.github.io/distributed-tracing/report-trace-context.html">page</a> for more
+   * information.
+   *
+   * @since 0.13.0
+   * @return the W3C distributed tracing format.
+   */
+  public static TextFormat getW3CFormat() {
+    return new W3CFormat();
+  }
 }

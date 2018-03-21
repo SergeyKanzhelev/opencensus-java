@@ -83,7 +83,6 @@ public class ApplicationInsightsExporterHandlerTest {
 
   @Before
   public void setUp() {
-    // MockitoAnnotations.initMocks(this);
     sentItems = new ArrayList<Telemetry>();
     realTelemetryClient = new TelemetryClient(TelemetryConfiguration.createDefault());
     telemetryClient = spy(realTelemetryClient);
@@ -147,7 +146,7 @@ public class ApplicationInsightsExporterHandlerTest {
             childContext,
             creatAttributes("childLink"),
             parentContext,
-            creatAttributes("prentLink"));
+            creatAttributes("parentLink"));
     Status status = Status.OK;
 
     SpanData spanData =
@@ -180,6 +179,7 @@ public class ApplicationInsightsExporterHandlerTest {
 
     assertThat(traces).hasSize(2);
 
+    assertLinks(requests.get(0).getProperties(), spanData.getLinks());
     assertTraceTelemetryFromAnnotation(traces.get(0), annotations.getEvents().get(0), spanData);
     assertTraceTelemetryFromMessageEvent(traces.get(1), messages.getEvents().get(0), spanData);
   }
@@ -308,6 +308,25 @@ public class ApplicationInsightsExporterHandlerTest {
         .isEqualTo(span.getContext().getTraceId().toLowerBase16());
     assertThat(trace.getContext().getOperation().getParentId())
         .isEqualTo(span.getContext().getSpanId().toLowerBase16());
+  }
+
+  private void assertLinks(Map<String, String> telemetryProperties, Links spanLinks) {
+    Link[] links = spanLinks.getLinks().toArray(new Link[0]);
+    for (int i = 0; i < links.length; i++) {
+      String prefix = String.format("link%d_", i);
+      assertThat(telemetryProperties)
+          .containsEntry(prefix + "spanId", links[i].getSpanId().toLowerBase16());
+      assertThat(telemetryProperties)
+          .containsEntry(prefix + "traceId", links[i].getTraceId().toLowerBase16());
+      assertThat(telemetryProperties).containsEntry(prefix + "type", links[i].getType().name());
+    }
+
+    assertThat(telemetryProperties).containsEntry("link0_childLink-stringAttribute", "value");
+    assertThat(telemetryProperties).containsEntry("link0_childLink-booleanAttribute", "true");
+    assertThat(telemetryProperties).containsEntry("link0_childLink-longAttribute", "123");
+    assertThat(telemetryProperties).containsEntry("link1_parentLink-stringAttribute", "value");
+    assertThat(telemetryProperties).containsEntry("link1_parentLink-booleanAttribute", "true");
+    assertThat(telemetryProperties).containsEntry("link1_parentLink-longAttribute", "123");
   }
 
   private <T> List<T> getTelemetryOfType(List<Telemetry> items, Class<T> clazz) {
