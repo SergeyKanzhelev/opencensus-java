@@ -18,6 +18,8 @@ package io.opencensus.trace;
 
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Objects;
+import java.util.HashMap;
+import java.util.Map;
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.Immutable;
 
@@ -34,7 +36,7 @@ public final class SpanContext {
   private final TraceId traceId;
   private final SpanId spanId;
   private final TraceOptions traceOptions;
-
+  private final Map<String, String> state = new HashMap<String, String>();
   /**
    * The invalid {@code SpanContext}.
    *
@@ -94,6 +96,13 @@ public final class SpanContext {
    */
   public boolean isValid() {
     return traceId.isValid() && spanId.isValid();
+  }
+
+  /**
+   * Returns state map for the span.
+   * @return state map for the span.*/
+  public Map<String, String> getState() {
+    return state;
   }
 
   @Override

@@ -48,7 +48,7 @@ public class HttpPropagationUtil {
    * @since 0.13.0
    * @return the W3C distributed tracing format.
    */
-  public static TextFormat getW3CFormat() {
-    return new W3CFormat();
+  public static TextFormat getApplicationInsightsFormat() {
+    return new ApplicationInsightsFormat();
   }
 }
