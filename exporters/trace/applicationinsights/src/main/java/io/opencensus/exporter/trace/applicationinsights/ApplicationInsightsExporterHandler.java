@@ -134,6 +134,7 @@ final class ApplicationInsightsExporterHandler extends SpanExporter.Handler {
     String method = null;
     String path = null;
     String route = null;
+    String scheme = null;
     int port = -1;
     boolean isResultSet = false;
 
@@ -162,6 +163,9 @@ final class ApplicationInsightsExporterHandler extends SpanExporter.Handler {
         case "http.port":
           port = attributeValueToLong(entry.getValue()).intValue();
           break;
+        case "http.scheme":
+          scheme = attributeValueToString(entry.getValue());
+          break;
         default:
           if (!request.getProperties().containsKey(entry.getKey())) {
             request.getProperties().put(entry.getKey(), attributeValueToString(entry.getValue()));
@@ -170,7 +174,7 @@ final class ApplicationInsightsExporterHandler extends SpanExporter.Handler {
     }
 
     if (host != null) {
-      request.setUrl(getUrl(host, port, path));
+      request.setUrl(getUrl(host, port, path, scheme));
       request.setName(String.format("%s %s", method, route != null ? route : path));
     } else { // perhaps not http
       request.setName(span.getName());
@@ -186,15 +190,16 @@ final class ApplicationInsightsExporterHandler extends SpanExporter.Handler {
     return request;
   }
 
-  private URL getUrl(String host, int port, String path) {
+  private URL getUrl(String host, int port, String path, String scheme) {
     try {
-      // todo: better way to determine schema?
-      String schema = port == 80 ? "http" : "https";
+      if (scheme == null) {
+        scheme = port == 80 ? "http" : "https";
+      }
       if (port < 0 || port == 80 || port == 443) {
-        return new URL(String.format("%s://%s%s", schema, host, path));
+        return new URL(String.format("%s://%s%s", scheme, host, path));
       }
 
-      return new URL(String.format("%s://%s:%d%s", schema, host, port, path));
+      return new URL(String.format("%s://%s:%d%s", scheme, host, port, path));
     } catch (MalformedURLException e) {
       return null;
     }
@@ -229,6 +234,7 @@ final class ApplicationInsightsExporterHandler extends SpanExporter.Handler {
 
     boolean isHttp = false;
     boolean isResultSet = false;
+    String scheme = null;
     for (Map.Entry<String, AttributeValue> entry :
         span.getAttributes().getAttributeMap().entrySet()) {
       switch (entry.getKey()) {
@@ -250,6 +256,9 @@ final class ApplicationInsightsExporterHandler extends SpanExporter.Handler {
         case "http.port":
           port = attributeValueToLong(entry.getValue()).intValue();
           break;
+        case "http.scheme":
+          scheme = attributeValueToString(entry.getValue());
+          break;
         default:
           if (!dependency.getProperties().containsKey(entry.getKey())) {
             dependency
@@ -261,7 +270,7 @@ final class ApplicationInsightsExporterHandler extends SpanExporter.Handler {
 
     String target = host;
     if (span.getContext().getState().containsKey("ms-appId")) {
-      target += " | " + span.getContext().getState().get("ms-appId").toString();
+      target += " | " + span.getContext().getState().get("ms-appId");
       dependency.setType("Http (tracked component)");
     } else if (isHttp) {
       dependency.setType("HTTP");
@@ -274,7 +283,7 @@ final class ApplicationInsightsExporterHandler extends SpanExporter.Handler {
     }
 
     if (host != null) {
-      dependency.setCommandName(getUrl(host, port, path).toString());
+      dependency.setCommandName(getUrl(host, port, path, scheme).toString());
     }
 
     if (method != null && path != null) {
