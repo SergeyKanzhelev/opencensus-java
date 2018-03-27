@@ -85,7 +85,8 @@ public class SpanExporterImplTest {
             TraceParams.DEFAULT,
             startEndHandler,
             null,
-            MillisClock.getInstance());
+            MillisClock.getInstance(),
+            null);
     span.end();
     return span;
   }
@@ -101,7 +102,8 @@ public class SpanExporterImplTest {
             TraceParams.DEFAULT,
             startEndHandler,
             null,
-            MillisClock.getInstance());
+            MillisClock.getInstance(),
+            null);
     span.end();
     return span;
   }

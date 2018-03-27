@@ -162,7 +162,8 @@ public class ApplicationInsightsExporterHandlerTest {
             links,
             0,
             status,
-            endTimestamp);
+            endTimestamp,
+            null);
 
     List<SpanData> spans = new ArrayList<>();
     spans.add(spanData);
@@ -258,7 +259,12 @@ public class ApplicationInsightsExporterHandlerTest {
         .isEqualTo(
             getEpochMillis(span.getEndTimestamp().subtractTimestamp(span.getStartTimestamp())));
     assertThat(request.isSuccess()).isEqualTo(span.getStatus().isOk());
-    assertThat(request.getId()).isEqualTo(span.getContext().getSpanId().toLowerBase16());
+    assertThat(request.getId())
+        .isEqualTo(
+            String.format(
+                "|%s.%s.",
+                span.getContext().getTraceId().toLowerBase16(),
+                span.getContext().getSpanId().toLowerBase16()));
     assertThat(request.getResponseCode()).isEqualTo(Integer.toString(DEFAULT_STATUS_CODE));
 
     URL url = request.getUrl();
@@ -289,8 +295,13 @@ public class ApplicationInsightsExporterHandlerTest {
 
     assertThat(trace.getContext().getOperation().getId())
         .isEqualTo(span.getContext().getTraceId().toLowerBase16());
+
     assertThat(trace.getContext().getOperation().getParentId())
-        .isEqualTo(span.getContext().getSpanId().toLowerBase16());
+        .isEqualTo(
+            String.format(
+                "|%s.%s.",
+                span.getContext().getTraceId().toLowerBase16(),
+                span.getContext().getSpanId().toLowerBase16()));
   }
 
   private void assertTraceTelemetryFromMessageEvent(
@@ -306,8 +317,13 @@ public class ApplicationInsightsExporterHandlerTest {
 
     assertThat(trace.getContext().getOperation().getId())
         .isEqualTo(span.getContext().getTraceId().toLowerBase16());
+
     assertThat(trace.getContext().getOperation().getParentId())
-        .isEqualTo(span.getContext().getSpanId().toLowerBase16());
+        .isEqualTo(
+            String.format(
+                "|%s.%s.",
+                span.getContext().getTraceId().toLowerBase16(),
+                span.getContext().getSpanId().toLowerBase16()));
   }
 
   private void assertLinks(Map<String, String> telemetryProperties, Links spanLinks) {

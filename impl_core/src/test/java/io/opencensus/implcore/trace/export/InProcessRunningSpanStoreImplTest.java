@@ -68,7 +68,8 @@ public class InProcessRunningSpanStoreImplTest {
         TraceParams.DEFAULT,
         startEndHandler,
         null,
-        MillisClock.getInstance());
+        MillisClock.getInstance(),
+        null);
   }
 
   @Test

@@ -74,6 +74,8 @@ public abstract class SpanData {
    *     active.
    * @param endTimestamp the end {@code Timestamp} of the {@code Span}. {@code null} if the {@code
    *     Span} is still active.
+   * @param parentSpanState the parent {@code State} of the {@code Span}. {@code null} if the {@code
+   *     Span} is a root.
    * @return a new immutable {@code SpanData}.
    * @since 0.5
    */
@@ -90,7 +92,8 @@ public abstract class SpanData {
       Links links,
       @Nullable Integer childSpanCount,
       @Nullable Status status,
-      @Nullable Timestamp endTimestamp) {
+      @Nullable Timestamp endTimestamp,
+      @Nullable Map<String, String> parentSpanState) {
     if (messageOrNetworkEvents == null) {
       throw new NullPointerException("Null messageOrNetworkEvents");
     }
@@ -114,6 +117,7 @@ public abstract class SpanData {
     return new AutoValue_SpanData(
         context,
         parentSpanId,
+        parentSpanState,
         hasRemoteParent,
         name,
         startTimestamp,
@@ -143,6 +147,16 @@ public abstract class SpanData {
   @Nullable
   /*@Deterministic*/
   public abstract SpanId getParentSpanId();
+
+  /**
+   * Returns the parent {@code State} or {@code null} if the {@code Span} is a root {@code Span}.
+   *
+   * @return the parent {@code State} or {@code null} if the {@code Span} is a root {@code Span}.
+   * @since 0.5
+   */
+  @Nullable
+  /*@Deterministic*/
+  public abstract Map<String, String> getParentSpanState();
 
   /**
    * Returns {@code true} if the parent is on a different process. {@code null} if this is a root

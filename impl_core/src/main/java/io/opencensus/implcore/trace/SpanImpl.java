@@ -98,6 +98,8 @@ public final class SpanImpl extends Span implements Element<SpanImpl> {
   // otherwise 0.
   @GuardedBy("this")
   private long endNanoTime;
+  // The parent SpanId of this span. Null if this is a root span.
+  @Nullable private final Map<String, String> parentSpanState;
   // True if the span is ended.
   @GuardedBy("this")
   private boolean hasBeenEnded;
@@ -124,6 +126,7 @@ public final class SpanImpl extends Span implements Element<SpanImpl> {
    *     parent is sampled, we should use the same converter to ensure ordering between tracing
    *     events.
    * @param clock the clock used to get the time.
+   * @param parentSpanState the state of the parent span, or null if the new span is a root span.
    * @return a new and started span.
    */
   @VisibleForTesting
@@ -136,7 +139,8 @@ public final class SpanImpl extends Span implements Element<SpanImpl> {
       TraceParams traceParams,
       StartEndHandler startEndHandler,
       @Nullable TimestampConverter timestampConverter,
-      Clock clock) {
+      Clock clock,
+      Map<String, String> parentSpanState) {
     SpanImpl span =
         new SpanImpl(
             context,
@@ -147,7 +151,8 @@ public final class SpanImpl extends Span implements Element<SpanImpl> {
             traceParams,
             startEndHandler,
             timestampConverter,
-            clock);
+            clock,
+            parentSpanState);
     // Call onStart here instead of calling in the constructor to make sure the span is completely
     // initialized.
     if (span.getOptions().contains(Options.RECORD_EVENTS)) {
@@ -261,7 +266,8 @@ public final class SpanImpl extends Span implements Element<SpanImpl> {
           hasBeenEnded ? getStatusWithDefault() : null,
           hasBeenEnded
               ? CheckerFrameworkUtils.castNonNull(timestampConverter).convertNanoTime(endNanoTime)
-              : null);
+              : null,
+          parentSpanState);
     }
   }
 
@@ -572,7 +578,8 @@ public final class SpanImpl extends Span implements Element<SpanImpl> {
       TraceParams traceParams,
       StartEndHandler startEndHandler,
       @Nullable TimestampConverter timestampConverter,
-      Clock clock) {
+      Clock clock,
+      Map<String, String> parentSpanState) {
     super(context, options);
     this.parentSpanId = parentSpanId;
     this.hasRemoteParent = hasRemoteParent;
@@ -590,5 +597,7 @@ public final class SpanImpl extends Span implements Element<SpanImpl> {
       this.startNanoTime = 0;
       this.timestampConverter = timestampConverter;
     }
+
+    this.parentSpanState = parentSpanState;
   }
 }

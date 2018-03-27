@@ -109,7 +109,8 @@ public final class NoopSampledSpanStoreImplTest {
             TraceParams.DEFAULT,
             startEndHandler,
             timestampConverter,
-            testClock);
+            testClock,
+            null);
     spanImpl.end();
     sampledSpanStoreImpl.considerForSampling(spanImpl);
     getMethodsShouldReturnEmpty();

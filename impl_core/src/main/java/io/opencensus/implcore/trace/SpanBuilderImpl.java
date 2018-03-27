@@ -35,6 +35,7 @@ import io.opencensus.trace.config.TraceParams;
 import java.util.Collections;
 import java.util.EnumSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Random;
 import javax.annotation.Nullable;
 
@@ -62,6 +63,7 @@ final class SpanBuilderImpl extends SpanBuilder {
     TraceId traceId;
     SpanId spanId = SpanId.generateRandomId(random);
     SpanId parentSpanId = null;
+    Map<String, String> parentState = null;
     TraceOptions.Builder traceOptionsBuilder;
     if (parent == null || !parent.isValid()) {
       // New root span.
@@ -73,6 +75,7 @@ final class SpanBuilderImpl extends SpanBuilder {
       // New child span.
       traceId = parent.getTraceId();
       parentSpanId = parent.getSpanId();
+      parentState = parent.getState();
       traceOptionsBuilder = TraceOptions.builder(parent.getTraceOptions());
     }
     traceOptionsBuilder.setIsSampled(
@@ -100,8 +103,10 @@ final class SpanBuilderImpl extends SpanBuilder {
             activeTraceParams,
             options.startEndHandler,
             timestampConverter,
-            options.clock);
+            options.clock,
+            parentState);
     linkSpans(span, parentLinks);
+
     return span;
   }
 

@@ -76,7 +76,8 @@ public class NoopRunningSpanStoreImplTest {
             TraceParams.DEFAULT,
             startEndHandler,
             timestampConverter,
-            testClock);
+            testClock,
+            null);
   }
 
   private void getMethodsShouldReturnEmpty() {

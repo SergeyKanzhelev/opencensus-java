@@ -140,7 +140,8 @@ public final class StackdriverV2ExporterHandlerProtoTest {
             links,
             CHILD_SPAN_COUNT,
             status,
-            endTimestamp);
+            endTimestamp,
+            null);
 
     TimeEvent annotationTimeEvent1 =
         TimeEvent.newBuilder()

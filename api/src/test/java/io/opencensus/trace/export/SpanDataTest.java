@@ -120,7 +120,8 @@ public class SpanDataTest {
             links,
             CHILD_SPAN_COUNT,
             status,
-            endTimestamp);
+            endTimestamp,
+            null);
     assertThat(spanData.getContext()).isEqualTo(spanContext);
     assertThat(spanData.getParentSpanId()).isEqualTo(parentSpanId);
     assertThat(spanData.getHasRemoteParent()).isTrue();
@@ -151,7 +152,8 @@ public class SpanDataTest {
             links,
             CHILD_SPAN_COUNT,
             status,
-            endTimestamp);
+            endTimestamp,
+            null);
     assertThat(spanData.getContext()).isEqualTo(spanContext);
     assertThat(spanData.getParentSpanId()).isEqualTo(parentSpanId);
     assertThat(spanData.getHasRemoteParent()).isTrue();
@@ -180,6 +182,7 @@ public class SpanDataTest {
             annotations,
             messageEvents,
             links,
+            null,
             null,
             null,
             null);
@@ -213,7 +216,8 @@ public class SpanDataTest {
             Links.create(Collections.<Link>emptyList(), 0),
             0,
             status,
-            endTimestamp);
+            endTimestamp,
+            null);
     assertThat(spanData.getContext()).isEqualTo(spanContext);
     assertThat(spanData.getParentSpanId()).isEqualTo(parentSpanId);
     assertThat(spanData.getHasRemoteParent()).isFalse();
@@ -244,7 +248,8 @@ public class SpanDataTest {
             links,
             CHILD_SPAN_COUNT,
             status,
-            endTimestamp);
+            endTimestamp,
+            null);
     SpanData allSpanData2 =
         SpanData.create(
             spanContext,
@@ -258,7 +263,8 @@ public class SpanDataTest {
             links,
             CHILD_SPAN_COUNT,
             status,
-            endTimestamp);
+            endTimestamp,
+            null);
     SpanData emptySpanData =
         SpanData.create(
             spanContext,
@@ -272,7 +278,8 @@ public class SpanDataTest {
             Links.create(Collections.<Link>emptyList(), 0),
             0,
             status,
-            endTimestamp);
+            endTimestamp,
+            null);
     new EqualsTester()
         .addEqualityGroup(allSpanData1, allSpanData2)
         .addEqualityGroup(emptySpanData)
@@ -294,7 +301,8 @@ public class SpanDataTest {
                 links,
                 CHILD_SPAN_COUNT,
                 status,
-                endTimestamp)
+                endTimestamp,
+                null)
             .toString();
     assertThat(spanDataString).contains(spanContext.toString());
     assertThat(spanDataString).contains(parentSpanId.toString());

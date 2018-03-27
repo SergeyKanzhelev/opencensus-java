@@ -18,11 +18,18 @@ package io.opencensus.exporter.trace.applicationinsights;
 
 import com.microsoft.applicationinsights.TelemetryClient;
 import com.microsoft.applicationinsights.extensibility.context.OperationContext;
-import com.microsoft.applicationinsights.telemetry.*;
+import com.microsoft.applicationinsights.telemetry.Duration;
+import com.microsoft.applicationinsights.telemetry.RemoteDependencyTelemetry;
+import com.microsoft.applicationinsights.telemetry.RequestTelemetry;
+import com.microsoft.applicationinsights.telemetry.Telemetry;
+import com.microsoft.applicationinsights.telemetry.TraceTelemetry;
 import io.opencensus.common.Function;
 import io.opencensus.common.Functions;
 import io.opencensus.common.Timestamp;
-import io.opencensus.trace.*;
+import io.opencensus.trace.Annotation;
+import io.opencensus.trace.AttributeValue;
+import io.opencensus.trace.Link;
+import io.opencensus.trace.MessageEvent;
 import io.opencensus.trace.export.SpanData;
 import io.opencensus.trace.export.SpanExporter;
 import java.net.MalformedURLException;
@@ -85,33 +92,43 @@ final class ApplicationInsightsExporterHandler extends SpanExporter.Handler {
   }
 
   private void exportSpan(SpanData span) {
+    String operationId = null;
+    String parentId = null;
     if (Boolean.TRUE.equals(span.getHasRemoteParent())) {
-      trackRequestFromSpan(span);
+      RequestTelemetry request = trackRequestFromSpan(span);
+      operationId = request.getContext().getOperation().getId();
+      parentId = request.getId();
     } else if (span.getName().startsWith("Sent.")) {
       // widespread hack (see zipkin and instana exporters)
-      trackDependencyFromSpan(span);
+      RemoteDependencyTelemetry dependency = trackDependencyFromSpan(span);
+      if (dependency != null) {
+        operationId = dependency.getContext().getOperation().getId();
+        parentId = dependency.getId();
+      }
     } else {
-      trackRequestFromSpan(span);
+      RequestTelemetry request = trackRequestFromSpan(span);
+      operationId = request.getContext().getOperation().getId();
+      parentId = request.getId();
     }
 
     for (SpanData.TimedEvent<Annotation> annotation : span.getAnnotations().getEvents()) {
-      trackTraceFromAnnotation(annotation, span);
+      trackTraceFromAnnotation(annotation, operationId, parentId);
     }
 
     for (SpanData.TimedEvent<MessageEvent> messageEvent : span.getMessageEvents().getEvents()) {
-      trackTraceFromMessageEvent(messageEvent, span);
+      trackTraceFromMessageEvent(messageEvent, operationId, parentId);
     }
   }
 
-  private void trackRequestFromSpan(SpanData span) {
+  private RequestTelemetry trackRequestFromSpan(SpanData span) {
     RequestTelemetry request = new RequestTelemetry();
-    setOperationContext(span, request.getContext().getOperation());
+    setOperationContext(span, request, span.getParentSpanState());
 
-    request.setId(span.getContext().getSpanId().toLowerBase16());
     request.setTimestamp(getDate(span.getStartTimestamp()));
     request.setDuration(getDuration(span.getStartTimestamp(), span.getEndTimestamp()));
 
     request.setSuccess(span.getStatus().isOk());
+    setRequestSource(span.getContext().getState(), request);
 
     String host = null;
     String method = null;
@@ -166,13 +183,14 @@ final class ApplicationInsightsExporterHandler extends SpanExporter.Handler {
     setLinks(span.getLinks(), request.getProperties());
 
     telemetryClient.trackRequest(request);
+    return request;
   }
 
   private URL getUrl(String host, int port, String path) {
     try {
       // todo: better way to determine schema?
       String schema = port == 80 ? "http" : "https";
-      if (port == 80 || port == 443) {
+      if (port < 0 || port == 80 || port == 443) {
         return new URL(String.format("%s://%s%s", schema, host, path));
       }
 
@@ -187,19 +205,18 @@ final class ApplicationInsightsExporterHandler extends SpanExporter.Handler {
         || host.startsWith("rt.services.visualstudio.com");
   }
 
-  private void trackDependencyFromSpan(SpanData span) {
+  private RemoteDependencyTelemetry trackDependencyFromSpan(SpanData span) {
     String host = null;
     if (span.getAttributes().getAttributeMap().containsKey("http.host")) {
       host = attributeValueToString(span.getAttributes().getAttributeMap().get("http.host"));
       if (isApplicationInsightsUrl(host)) {
-        return;
+        return null;
       }
     }
 
     RemoteDependencyTelemetry dependency = new RemoteDependencyTelemetry();
-    setOperationContext(span, dependency.getContext().getOperation());
+    setOperationContext(span, dependency, span.getContext().getState());
 
-    dependency.setId(span.getContext().getSpanId().toLowerBase16());
     dependency.setTimestamp(getDate(span.getStartTimestamp()));
     dependency.setDuration(getDuration(span.getStartTimestamp(), span.getEndTimestamp()));
 
@@ -242,10 +259,15 @@ final class ApplicationInsightsExporterHandler extends SpanExporter.Handler {
       }
     }
 
-    dependency.setTarget(host);
-    if (isHttp) {
+    String target = host;
+    if (span.getContext().getState().containsKey("ms-appId")) {
+      target += " | " + span.getContext().getState().get("ms-appId").toString();
+      dependency.setType("Http (tracked component)");
+    } else if (isHttp) {
       dependency.setType("HTTP");
     }
+
+    dependency.setTarget(target);
 
     if (!isResultSet) {
       dependency.setResultCode(span.getStatus().getDescription());
@@ -264,13 +286,15 @@ final class ApplicationInsightsExporterHandler extends SpanExporter.Handler {
     setLinks(span.getLinks(), dependency.getProperties());
 
     telemetryClient.trackDependency(dependency);
+
+    return dependency;
   }
 
   private void trackTraceFromAnnotation(
-      SpanData.TimedEvent<Annotation> annotationEvent, SpanData span) {
+      SpanData.TimedEvent<Annotation> annotationEvent, String operationId, String parentId) {
     Annotation annotation = annotationEvent.getEvent();
     TraceTelemetry trace = new TraceTelemetry();
-    setParentOperationContext(span, trace.getContext().getOperation());
+    setParentOperationContext(operationId, parentId, trace.getContext().getOperation());
     trace.setMessage(annotation.getDescription());
     trace.setTimestamp(getDate(annotationEvent.getTimestamp()));
     setAttributes(annotation.getAttributes(), trace.getProperties());
@@ -279,10 +303,10 @@ final class ApplicationInsightsExporterHandler extends SpanExporter.Handler {
   }
 
   private void trackTraceFromMessageEvent(
-      SpanData.TimedEvent<MessageEvent> messageEvent, SpanData span) {
+      SpanData.TimedEvent<MessageEvent> messageEvent, String operationId, String parentId) {
     MessageEvent event = messageEvent.getEvent();
     TraceTelemetry trace = new TraceTelemetry();
-    setParentOperationContext(span, trace.getContext().getOperation());
+    setParentOperationContext(operationId, parentId, trace.getContext().getOperation());
     trace.setMessage(
         String.format(
             "MessageEvent. messageId: '%d',"
@@ -323,16 +347,45 @@ final class ApplicationInsightsExporterHandler extends SpanExporter.Handler {
     }
   }
 
-  private void setOperationContext(SpanData span, OperationContext context) {
-    context.setId(span.getContext().getTraceId().toLowerBase16());
-    if (span.getParentSpanId() != null) {
-      context.setParentId(span.getParentSpanId().toLowerBase16());
+  private void setOperationContext(SpanData span, Telemetry telemetry, Map<String, String> state) {
+    OperationContext context = telemetry.getContext().getOperation();
+    String root = null;
+    String parent = null;
+    String newId = null;
+    if (state != null && state.containsKey("ms-request-root-id")) {
+      parent = state.get("ms-request-id");
+      root = state.get("ms-request-root-id");
+    } else {
+      parent = span.getParentSpanId().toLowerBase16();
+      root = span.getContext().getTraceId().toLowerBase16();
+    }
+    newId = String.format("|%s.%s.", root, span.getContext().getSpanId().toLowerBase16());
+
+    context.setId(root);
+    context.setParentId(parent);
+
+    if (telemetry instanceof RemoteDependencyTelemetry) {
+      RemoteDependencyTelemetry dependency = (RemoteDependencyTelemetry) telemetry;
+      dependency.setId(newId);
+    }
+
+    if (telemetry instanceof RequestTelemetry) {
+      RequestTelemetry request = (RequestTelemetry) telemetry;
+      request.setId(newId);
     }
   }
 
-  private void setParentOperationContext(SpanData span, OperationContext context) {
-    context.setId(span.getContext().getTraceId().toLowerBase16());
-    context.setParentId(span.getContext().getSpanId().toLowerBase16());
+  private void setRequestSource(Map<String, String> state, RequestTelemetry telemetry) {
+    if (state.containsKey("ms-appId")) {
+      String appId = state.get("ms-appId");
+      telemetry.setSource(appId);
+    }
+  }
+
+  private void setParentOperationContext(
+      String operationId, String parentId, OperationContext context) {
+    context.setId(operationId);
+    context.setParentId(parentId);
   }
 
   private void setAttributes(

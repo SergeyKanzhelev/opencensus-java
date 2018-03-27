@@ -96,7 +96,8 @@ public class SpanImplTest {
             TraceParams.DEFAULT,
             startEndHandler,
             timestampConverter,
-            testClock);
+            testClock,
+            null);
     // Check that adding trace events after Span#end() does not throw any exception.
     span.putAttributes(attributes);
     span.addAnnotation(Annotation.fromDescription(ANNOTATION_DESCRIPTION));
@@ -121,7 +122,8 @@ public class SpanImplTest {
             TraceParams.DEFAULT,
             startEndHandler,
             timestampConverter,
-            testClock);
+            testClock,
+            null);
     span.end();
     // Check that adding trace events after Span#end() does not throw any exception and are not
     // recorded.
@@ -156,7 +158,8 @@ public class SpanImplTest {
             TraceParams.DEFAULT,
             startEndHandler,
             timestampConverter,
-            testClock);
+            testClock,
+            null);
     span.addAttributes(attributes);
     span.end();
     SpanData spanData = span.toSpanData();
@@ -175,7 +178,8 @@ public class SpanImplTest {
             TraceParams.DEFAULT,
             startEndHandler,
             timestampConverter,
-            testClock);
+            testClock,
+            null);
     Mockito.verify(startEndHandler, Mockito.times(1)).onStart(span);
     span.putAttribute(
         "MySingleStringAttributeKey",
@@ -234,7 +238,8 @@ public class SpanImplTest {
             TraceParams.DEFAULT,
             startEndHandler,
             timestampConverter,
-            testClock);
+            testClock,
+            null);
     Mockito.verify(startEndHandler, Mockito.times(1)).onStart(span);
     span.putAttribute(
         "MySingleStringAttributeKey",
@@ -295,7 +300,8 @@ public class SpanImplTest {
             TraceParams.DEFAULT,
             startEndHandler,
             timestampConverter,
-            testClock);
+            testClock,
+            null);
     Mockito.verify(startEndHandler, Mockito.times(1)).onStart(span);
     testClock.advanceTime(Duration.create(0, 100));
     assertThat(span.getStatus()).isEqualTo(Status.OK);
@@ -317,7 +323,8 @@ public class SpanImplTest {
             TraceParams.DEFAULT,
             startEndHandler,
             timestampConverter,
-            testClock);
+            testClock,
+            null);
     Mockito.verify(startEndHandler, Mockito.times(1)).onStart(span);
     testClock.advanceTime(Duration.create(0, 100));
     assertThat(span.getStatus()).isEqualTo(Status.OK);
@@ -342,7 +349,8 @@ public class SpanImplTest {
             traceParams,
             startEndHandler,
             timestampConverter,
-            testClock);
+            testClock,
+            null);
     for (int i = 0; i < 2 * maxNumberOfAttributes; i++) {
       Map<String, AttributeValue> attributes = new HashMap<String, AttributeValue>();
       attributes.put("MyStringAttributeKey" + i, AttributeValue.longAttributeValue(i));
@@ -390,7 +398,8 @@ public class SpanImplTest {
             traceParams,
             startEndHandler,
             timestampConverter,
-            testClock);
+            testClock,
+            null);
     for (int i = 0; i < 2 * maxNumberOfAttributes; i++) {
       Map<String, AttributeValue> attributes = new HashMap<String, AttributeValue>();
       attributes.put("MyStringAttributeKey" + i, AttributeValue.longAttributeValue(i));
@@ -448,7 +457,8 @@ public class SpanImplTest {
             traceParams,
             startEndHandler,
             timestampConverter,
-            testClock);
+            testClock,
+            null);
     Annotation annotation = Annotation.fromDescription(ANNOTATION_DESCRIPTION);
     for (int i = 0; i < 2 * maxNumberOfAnnotations; i++) {
       span.addAnnotation(annotation);
@@ -491,7 +501,8 @@ public class SpanImplTest {
             traceParams,
             startEndHandler,
             timestampConverter,
-            testClock);
+            testClock,
+            null);
     NetworkEvent networkEvent =
         NetworkEvent.builder(NetworkEvent.Type.RECV, 1).setUncompressedMessageSize(3).build();
     for (int i = 0; i < 2 * maxNumberOfNetworkEvents; i++) {
@@ -534,7 +545,8 @@ public class SpanImplTest {
             traceParams,
             startEndHandler,
             timestampConverter,
-            testClock);
+            testClock,
+            null);
     Link link = Link.fromSpanContext(spanContext, Link.Type.CHILD_LINKED_SPAN);
     for (int i = 0; i < 2 * maxNumberOfLinks; i++) {
       span.addLink(link);
@@ -566,7 +578,8 @@ public class SpanImplTest {
             TraceParams.DEFAULT,
             startEndHandler,
             timestampConverter,
-            testClock);
+            testClock,
+            null);
     span.end(EndSpanOptions.builder().setSampleToLocalSpanStore(true).build());
     Mockito.verify(startEndHandler, Mockito.times(1)).onEnd(span);
     assertThat(span.getSampleToLocalSpanStore()).isTrue();
@@ -580,7 +593,8 @@ public class SpanImplTest {
             TraceParams.DEFAULT,
             startEndHandler,
             timestampConverter,
-            testClock);
+            testClock,
+            null);
     span.end();
     Mockito.verify(startEndHandler, Mockito.times(1)).onEnd(span);
     assertThat(span.getSampleToLocalSpanStore()).isFalse();
@@ -598,7 +612,8 @@ public class SpanImplTest {
             TraceParams.DEFAULT,
             startEndHandler,
             timestampConverter,
-            testClock);
+            testClock,
+            null);
     exception.expect(IllegalStateException.class);
     exception.expectMessage("Running span does not have the SampleToLocalSpanStore set.");
     span.getSampleToLocalSpanStore();

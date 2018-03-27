@@ -79,7 +79,8 @@ public class InstanaExporterHandlerTest {
             Links.create(Collections.<Link>emptyList(), 0 /* droppedLinksCount */),
             null, /* childSpanCount */
             Status.OK,
-            Timestamp.create(1505855799, 465726528) /* endTimestamp */);
+            Timestamp.create(1505855799, 465726528) /* endTimestamp */,
+            null);
 
     assertThat(InstanaExporterHandler.convertToJson(Collections.singletonList(data)))
         .isEqualTo(

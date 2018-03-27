@@ -98,7 +98,8 @@ public class InProcessSampledSpanStoreImplTest {
         TraceParams.DEFAULT,
         startEndHandler,
         null,
-        testClock);
+        testClock,
+        null);
   }
 
   private SpanImpl createNotSampledSpan(String spanName) {
@@ -111,7 +112,8 @@ public class InProcessSampledSpanStoreImplTest {
         TraceParams.DEFAULT,
         startEndHandler,
         null,
-        testClock);
+        testClock,
+        null);
   }
 
   private void addSpanNameToAllLatencyBuckets(String spanName) {

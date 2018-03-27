@@ -100,7 +100,9 @@ public final class SpanContext {
 
   /**
    * Returns state map for the span.
-   * @return state map for the span.*/
+   *
+   * @return state map for the span.
+   */
   public Map<String, String> getState() {
     return state;
   }
