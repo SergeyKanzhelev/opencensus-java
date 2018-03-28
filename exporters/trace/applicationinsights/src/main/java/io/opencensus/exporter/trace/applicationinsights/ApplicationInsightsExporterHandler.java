@@ -32,6 +32,7 @@ import io.opencensus.trace.Link;
 import io.opencensus.trace.MessageEvent;
 import io.opencensus.trace.export.SpanData;
 import io.opencensus.trace.export.SpanExporter;
+import java.io.UnsupportedEncodingException;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.Collection;
@@ -44,6 +45,9 @@ final class ApplicationInsightsExporterHandler extends SpanExporter.Handler {
   private static final String LINK_SPAN_ID_PROPERTY_NAME = "spanId";
   private static final String LINK_TRACE_ID_PROPERTY_NAME = "traceId";
   private static final String LINK_TYPE_PROPERTY_NAME = "type";
+  private static final String TRACE_OPTIONS_KEY = "options";
+  private static final String STATUS_DESCRIPTION_KEY = "error description";
+  private static final String CHILD_SPAN_COUNT = "child span count";
 
   private static final Function<Object, String> RETURN_STRING =
       new Function<Object, String>() {
@@ -181,7 +185,8 @@ final class ApplicationInsightsExporterHandler extends SpanExporter.Handler {
     }
 
     if (!isResultSet) {
-      request.setResponseCode(span.getStatus().getDescription());
+      request.setResponseCode(span.getStatus().getCanonicalCode().toString());
+      request.getProperties().put(STATUS_DESCRIPTION_KEY, span.getStatus().getDescription());
     }
 
     setLinks(span.getLinks(), request.getProperties());
@@ -373,14 +378,24 @@ final class ApplicationInsightsExporterHandler extends SpanExporter.Handler {
     context.setId(root);
     context.setParentId(parent);
 
+    Map<String, String> properties = null;
     if (telemetry instanceof RemoteDependencyTelemetry) {
       RemoteDependencyTelemetry dependency = (RemoteDependencyTelemetry) telemetry;
+      properties = dependency.getProperties();
       dependency.setId(newId);
+    } else { // if (telemetry instanceof RequestTelemetry)
+      RequestTelemetry request = (RequestTelemetry) telemetry;
+      properties = request.getProperties();
+      request.setId(newId);
     }
 
-    if (telemetry instanceof RequestTelemetry) {
-      RequestTelemetry request = (RequestTelemetry) telemetry;
-      request.setId(newId);
+    String traceOptions = null;
+    try {
+      traceOptions = new String(span.getContext().getTraceOptions().getBytes(), "UTF-8");
+      properties.put(TRACE_OPTIONS_KEY, traceOptions);
+      properties.put(CHILD_SPAN_COUNT, span.getChildSpanCount().toString());
+    } catch (UnsupportedEncodingException ex) {
+      // ignored
     }
   }
 
