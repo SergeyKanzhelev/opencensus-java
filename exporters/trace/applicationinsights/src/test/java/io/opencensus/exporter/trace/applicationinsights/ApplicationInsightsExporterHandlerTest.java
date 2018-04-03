@@ -275,8 +275,13 @@ public class ApplicationInsightsExporterHandlerTest {
 
     assertThat(request.getContext().getOperation().getId())
         .isEqualTo(span.getContext().getTraceId().toLowerBase16());
+
     assertThat(request.getContext().getOperation().getParentId())
-        .isEqualTo(span.getParentSpanId().toLowerBase16());
+        .isEqualTo(
+            String.format(
+                "|%s.%s.",
+                span.getContext().getTraceId().toLowerBase16(),
+                span.getParentSpanId().toLowerBase16()));
 
     assertThat(request.getContext().getUser().getUserAgent()).isEqualTo(DEFAULT_USER_AGENT);
     assertThat(request.getProperties()).containsEntry("span-stringAttribute", "value");

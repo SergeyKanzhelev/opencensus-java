@@ -272,13 +272,19 @@ final class ApplicationInsightsExporterHandler extends SpanExporter.Handler {
           }
       }
     }
+    if (isHttp) {
+      dependency.setType("HTTP");
+    } else {
+      dependency.setType(
+          attributeValueToString(span.getAttributes().getAttributeMap().get("component")));
+    }
 
     String target = host;
     if (span.getContext().getState().containsKey("ms-appId")) {
       target += " | " + span.getContext().getState().get("ms-appId");
-      dependency.setType("Http (tracked component)");
-    } else if (isHttp) {
-      dependency.setType("HTTP");
+      if (isHttp) {
+        dependency.setType("Http (tracked component)");
+      }
     }
 
     dependency.setTarget(target);
@@ -293,6 +299,8 @@ final class ApplicationInsightsExporterHandler extends SpanExporter.Handler {
 
     if (method != null && path != null) {
       dependency.setName(String.format("%s %s", method, path));
+    } else if (span.getName().startsWith("Sent.")) {
+      dependency.setName(span.getName().substring(5));
     } else {
       dependency.setName(span.getName());
     }
@@ -370,8 +378,8 @@ final class ApplicationInsightsExporterHandler extends SpanExporter.Handler {
       parent = state.get("ms-request-id");
       root = state.get("ms-request-root-id");
     } else {
-      parent = span.getParentSpanId().toLowerBase16();
       root = span.getContext().getTraceId().toLowerBase16();
+      parent = String.format("|%s.%s.", root, span.getParentSpanId().toLowerBase16());
     }
     newId = String.format("|%s.%s.", root, span.getContext().getSpanId().toLowerBase16());
 
@@ -393,7 +401,9 @@ final class ApplicationInsightsExporterHandler extends SpanExporter.Handler {
     try {
       traceOptions = new String(span.getContext().getTraceOptions().getBytes(), "UTF-8");
       properties.put(TRACE_OPTIONS_KEY, traceOptions);
-      properties.put(CHILD_SPAN_COUNT, span.getChildSpanCount().toString());
+      if (span.getChildSpanCount() != null) {
+        properties.put(CHILD_SPAN_COUNT, span.getChildSpanCount().toString());
+      }
     } catch (UnsupportedEncodingException ex) {
       // ignored
     }
