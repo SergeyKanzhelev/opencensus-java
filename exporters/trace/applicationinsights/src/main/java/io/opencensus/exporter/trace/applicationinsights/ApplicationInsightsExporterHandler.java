@@ -186,7 +186,9 @@ final class ApplicationInsightsExporterHandler extends SpanExporter.Handler {
 
     if (!isResultSet) {
       request.setResponseCode(span.getStatus().getCanonicalCode().toString());
-      request.getProperties().put(STATUS_DESCRIPTION_KEY, span.getStatus().getDescription());
+      if (span.getStatus().getDescription() != null) {
+        request.getProperties().put(STATUS_DESCRIPTION_KEY, span.getStatus().getDescription());
+      }
     }
 
     setLinks(span.getLinks(), request.getProperties());
@@ -275,8 +277,15 @@ final class ApplicationInsightsExporterHandler extends SpanExporter.Handler {
     if (isHttp) {
       dependency.setType("HTTP");
     } else {
-      dependency.setType(
-          attributeValueToString(span.getAttributes().getAttributeMap().get("component")));
+      String name = span.getName();
+      int startWith = 0;
+      if (name.startsWith("Sent.")) {
+        startWith = 5;
+      }
+
+      int nextDot = name.indexOf(".", startWith);
+      String type = name.substring(startWith, nextDot);
+      dependency.setType(type);
     }
 
     String target = host;

@@ -18,6 +18,7 @@ package io.opencensus.benchmarks.trace;
 
 import static com.google.common.base.Preconditions.checkState;
 
+import io.opencensus.trace.AttributeValue;
 import io.opencensus.trace.BlankSpan;
 import io.opencensus.trace.Span;
 import io.opencensus.trace.Tracer;
@@ -41,6 +42,7 @@ public class StartEndSpanBenchmark {
   @State(Scope.Benchmark)
   public static class Data {
     private Tracer tracer;
+    private Tracer noopTracer;
     private Span rootSpan = BlankSpan.INSTANCE;
 
     @Param({"impl", "impl-lite"})
@@ -49,6 +51,7 @@ public class StartEndSpanBenchmark {
     @Setup
     public void setup() {
       tracer = BenchmarksUtil.getTracer(implementation);
+      noopTracer = Tracer.getNoopTracer();
 
       rootSpan =
           tracer
@@ -158,6 +161,74 @@ public class StartEndSpanBenchmark {
             .spanBuilderWithExplicitParent(SPAN_NAME, data.rootSpan)
             .setSampler(Samplers.alwaysSample())
             .startSpan();
+    span.end();
+    return span;
+  }
+
+  static AttributeValue account = AttributeValue.stringAttributeValue("myaccountname");
+
+  /**
+   * This benchmark attempts to measure performance of start/end for a sampled child {@code Span}.
+   */
+  @Benchmark
+  @BenchmarkMode(Mode.SampleTime)
+  @OutputTimeUnit(TimeUnit.NANOSECONDS)
+  public Span startEndSampledChildSpanAttributes(Data data) {
+    Span span =
+        data.tracer
+            .spanBuilderWithExplicitParent(SPAN_NAME, data.rootSpan)
+            .setSampler(Samplers.alwaysSample())
+            .startSpan();
+    if (span.getContext().getTraceOptions().isSampled()) {
+      span.putAttribute("azure.blob.name", AttributeValue.stringAttributeValue("myblobname"));
+      span.putAttribute(
+          "azure.container.name", AttributeValue.stringAttributeValue("mycontainername"));
+      span.putAttribute("azure.account.name", account);
+    }
+    span.end();
+    return span;
+  }
+
+  /**
+   * This benchmark attempts to measure performance of start/end for a sampled child {@code Span}.
+   */
+  @Benchmark
+  @BenchmarkMode(Mode.SampleTime)
+  @OutputTimeUnit(TimeUnit.NANOSECONDS)
+  public Span startEndNotSampledChildSpanAttributes(Data data) {
+    Span span =
+        data.tracer
+            .spanBuilderWithExplicitParent(SPAN_NAME, data.rootSpan)
+            .setSampler(Samplers.neverSample())
+            .startSpan();
+    if (span.getContext().getTraceOptions().isSampled()) {
+      span.putAttribute("azure.blob.name", AttributeValue.stringAttributeValue("myblobname"));
+      span.putAttribute(
+          "azure.container.name", AttributeValue.stringAttributeValue("mycontainername"));
+      span.putAttribute("azure.account.name", account);
+    }
+    span.end();
+    return span;
+  }
+
+  /**
+   * This benchmark attempts to measure performance of start/end for a sampled child {@code Span}.
+   */
+  @Benchmark
+  @BenchmarkMode(Mode.SampleTime)
+  @OutputTimeUnit(TimeUnit.NANOSECONDS)
+  public Span startEndNoopChildSpanAttributes(Data data) {
+    Span span =
+        data.noopTracer
+            .spanBuilderWithExplicitParent(SPAN_NAME, data.rootSpan)
+            .setSampler(Samplers.alwaysSample())
+            .startSpan();
+    if (span.getContext().getTraceOptions().isSampled()) {
+      span.putAttribute("azure.blob.name", AttributeValue.stringAttributeValue("myblobname"));
+      span.putAttribute(
+          "azure.container.name", AttributeValue.stringAttributeValue("mycontainername"));
+      span.putAttribute("azure.account.name", account);
+    }
     span.end();
     return span;
   }

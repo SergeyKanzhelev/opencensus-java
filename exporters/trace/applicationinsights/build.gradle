@@ -7,7 +7,7 @@ description = 'OpenCensus Trace Application Insights Exporter'
 
 dependencies {
     compile project(':opencensus-api')
-    compile group: 'com.microsoft.azure', name: 'applicationinsights-core', version: '2.+'
+    compile group: 'com.microsoft.azure', name: 'applicationinsights-core', version: '2.0.2'
 
     testCompile project(':opencensus-api')
 

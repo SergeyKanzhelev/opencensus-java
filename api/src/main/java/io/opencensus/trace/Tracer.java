@@ -18,6 +18,7 @@ package io.opencensus.trace;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.errorprone.annotations.MustBeClosed;
 import io.opencensus.common.Scope;
 import io.opencensus.trace.SpanBuilder.NoopSpanBuilder;
@@ -73,12 +74,13 @@ import javax.annotation.Nullable;
 public abstract class Tracer {
   private static final NoopTracer noopTracer = new NoopTracer();
 
+  @VisibleForTesting
   /**
    * Returns the no-op implementation of the {@code Tracer}.
    *
    * @return the no-op implementation of the {@code Tracer}.
    */
-  static Tracer getNoopTracer() {
+  public static Tracer getNoopTracer() {
     return noopTracer;
   }
 
