@@ -181,7 +181,11 @@ final class ApplicationInsightsExporterHandler extends SpanExporter.Handler {
       request.setUrl(getUrl(host, port, path, scheme));
       request.setName(String.format("%s %s", method, route != null ? route : path));
     } else { // perhaps not http
-      request.setName(span.getName());
+      int lastDot = span.getName().lastIndexOf(".") + 1;
+      if (lastDot < 0) {
+        lastDot = 0;
+      }
+      request.setName(span.getName().substring(lastDot));
     }
 
     if (!isResultSet) {
@@ -279,7 +283,7 @@ final class ApplicationInsightsExporterHandler extends SpanExporter.Handler {
     } else {
       String name = span.getName();
       int startWith = 0;
-      if (name.startsWith("Sent.")) {
+      if (name.startsWith("sent.") || name.startsWith("Sent.")) {
         startWith = 5;
       }
 
@@ -299,7 +303,8 @@ final class ApplicationInsightsExporterHandler extends SpanExporter.Handler {
     dependency.setTarget(target);
 
     if (!isResultSet) {
-      dependency.setResultCode(span.getStatus().getDescription());
+      // TODO: description?
+      dependency.setResultCode(span.getStatus().getCanonicalCode().name());
     }
 
     if (host != null) {
@@ -308,10 +313,12 @@ final class ApplicationInsightsExporterHandler extends SpanExporter.Handler {
 
     if (method != null && path != null) {
       dependency.setName(String.format("%s %s", method, path));
-    } else if (span.getName().startsWith("Sent.")) {
-      dependency.setName(span.getName().substring(5));
     } else {
-      dependency.setName(span.getName());
+      int lastDot = span.getName().lastIndexOf(".") + 1;
+      if (lastDot < 0) {
+        lastDot = 0;
+      }
+      dependency.setName(span.getName().substring(lastDot));
     }
 
     setLinks(span.getLinks(), dependency.getProperties());
@@ -388,8 +395,11 @@ final class ApplicationInsightsExporterHandler extends SpanExporter.Handler {
       root = state.get("ms-request-root-id");
     } else {
       root = span.getContext().getTraceId().toLowerBase16();
-      parent = String.format("|%s.%s.", root, span.getParentSpanId().toLowerBase16());
+      if (span.getParentSpanId() != null) {
+        parent = String.format("|%s.%s.", root, span.getParentSpanId().toLowerBase16());
+      }
     }
+
     newId = String.format("|%s.%s.", root, span.getContext().getSpanId().toLowerBase16());
 
     context.setId(root);
